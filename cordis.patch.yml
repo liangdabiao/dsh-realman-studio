@@ -1,0 +1,5 @@
+# 真人剧工坊：Host 半边。注册 skill（seedance-storyboard-generator-realman）、六个工具
+# （项目/自检/出图/出片/拼接/生成历史）和 /realman-studio 工作台（静态页面 + 数据接口）。
+- insert:
+    - id: realman-studio
+      name: 'dsh-realman-studio'

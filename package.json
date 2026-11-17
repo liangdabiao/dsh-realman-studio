@@ -1,0 +1,51 @@
+{
+  "name": "dsh-realman-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "真人剧工坊：随包提供真人实拍质感 Seedance 分镜 skill（六根支柱+口型红线+纯净正文），用即梦官方 CLI（dreamina-canvas）出资产图、出片、跨集接力、拼接成片；剧本/资产/分镜真人感格式自检（realman_check）；侧栏「真人剧工坊」工作台与生成历史持久化。",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "lab",
+    "lib",
+    "skills",
+    "locale/*.json",
+    "cordis.patch.yml",
+    "icon.svg",
+    "README.md"
+  ],
+  "icon": "./icon.svg",
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "seedance",
+    "dreamina",
+    "jimeng",
+    "storyboard",
+    "short-drama",
+    "realman",
+    "live-action"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": []
+    }
+  },
+  "engines": {
+    "dsh": ">=0.2.1-rc.2 <0.3.0"
+  },
+  "license": "MIT"
+}

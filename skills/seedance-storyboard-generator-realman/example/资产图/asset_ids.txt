@@ -1,0 +1,14 @@
+费曼案例资产图 resourceId 记录（Seedream 5.5 / 2K，各 6 分）
+画布：不一样的工具箱-费曼（projectId b8cdde12-f73b-4020-b6ea-53d629d16db1）
+
+C01_费曼.png        907421f6-740b-406f-8b98-e4420d50af34
+C02_博士生.png      42011a23-06d5-4157-b87f-178e7ad6897f
+S01_教室正打.png    95cde0fb-a7ac-466b-b3b1-188877643e8e
+
+视频阶段 m2v 挂以上三张参考图（--ref res:<id>），五集共用，保证全片人物不换脸。
+成片 resourceId（seedance_2.5_flash / 480p / 15s，各 105 分）：
+E01 7f65c859-f776-4a55-83ef-c51c5bbaa106
+E02 0ff8ac68-9122-461b-87bd-5694c593eb46
+E03 efe6432c-0517-49c2-894b-2c3a21ebb7c3
+E04 5ab183c0-e80b-4ffe-8362-f23b20d69766
+E05 81141add-5506-4ac9-9ac4-696c74c1e4cd
