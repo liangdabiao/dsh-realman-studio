@@ -2,7 +2,7 @@
 
 把 [seedance-storyboard-generator-realman](https://github.com/liangdabiao/seedance-storyboard-generator-realman) 这套「真人实拍质感 Seedance 分镜」skill 搬进 DeepSeek Harness，并接上**即梦官方 CLI（dreamina-canvas）**：
 一句话故事 → 剧本 / 资产图 / 每集 15 秒真人感分镜 → 在即梦画布上出图出片 → 拼成一部片，全程不用离开对话。
-与「上美影短剧工坊」（动画风）、「分镜导演台」（题材通用）三足鼎立——这个专攻**真人实拍质感**：原生语音口型、35 毫米胶片感、费曼式学术悬疑也能拍。
+ 专攻**真人实拍质感**：原生语音口型、35 毫米胶片感、 悬疑剧也能拍。
 
 <img width="2091" height="1392" alt="image" src="https://github.com/user-attachments/assets/b453fa18-880f-47df-8f1e-433c59fbb2e4" />
  
@@ -26,12 +26,17 @@
 
 ## 前置
 
-即梦官方 CLI（带 OAuth 登录、画布、积分审批，和 npm 上的第三方 `jimeng-cli` 不是一回事）：
+即梦官方 CLI（带 OAuth 登录、画布、积分审批， ）：
 
-```powershell
-irm https://jimeng.jianying.com/canvas-cli/install.ps1 | iex
-dreamina-canvas --format json version
-```
+ 
+
+生成视频和图片用的是**即梦 CLI**（`dreamina-canvas`），需要先安装并登录：
+
+- 官网：https://jimeng.jianying.com/ai-tool/install?from_page=explore
+- 装好:全能画布CLI   , 安装完，则可以使用。
+- 生图默认：Seedream 5.5（seedream5.5）
+- 生视频默认：Seedance 2.5 flash
+ 
 
 装完让模型跑 `realman_project action=login` 拿授权链接，扫码后 `action=login-check`。
 不装 CLI 也能用本插件写剧本/分镜/提示词，只是不能真的出图出片。
@@ -121,7 +126,7 @@ dsh plugin --profile web add https://github.com/liangdabiao/dsh-realman-studio
 
 ## 许可
 
-插件代码 MIT（见 `LICENSE`）。`skills/seedance-storyboard-generator-realman` 是同作者自有仓库的随包快照，同 MIT；
+插件代码 MIT（见 `LICENSE`）。`skills/seedance-storyboard-generator-realman` 是同liangdabiao自有仓库的随包快照，同 MIT；
 快照与上游的差异（未携带资产参考图大图等）记录在 `skills/seedance-storyboard-generator-realman/NOTICE.md`。
 
 特别致谢社区支持： https://linux.do

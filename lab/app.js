@@ -58,6 +58,7 @@ const joinPath = (dir, rel) => `${String(dir).replace(/[\\/]+$/, '')}\\${String(
 const mediaUrl = (abs) => `${BASE}/media?path=${encodeURIComponent(abs)}`
 const kindLabel = (k) => KIND[k] || k || ''
 const mb = (bytes) => (bytes ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : '')
+const kb = (bytes) => (!bytes ? '' : bytes > 1024 * 1024 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`)
 const safeName = (s) => String(s || '').replace(/[\\/:*?"<>|]/g, '').trim().slice(0, 40) || '新真人剧'
 
 async function api(path, opts) {
@@ -120,6 +121,21 @@ function closeViewer() {
   viewerBody.innerHTML = ''
   viewerBody.className = 'viewer-body'
 }
+
+// 剧本 / 分镜 / 纯正文：走 /media 读原文，塞进 viewer 的 <pre>
+async function openDoc(abs, title) {
+  const name = title || String(abs).split(/[\\/]/).pop() || '文档'
+  openViewer({ title: name, copy: abs, html: '<div class="doc-loading">读取中…</div>' })
+  try {
+    const res = await fetch(mediaUrl(abs))
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const text = await res.text()
+    openViewer({ title: name, copy: abs, html: `<pre class="doc">${esc(text)}</pre>` })
+  } catch (err) {
+    openViewer({ title: name, copy: abs, html: `<div class="empty-box">读不到这个文件：${esc(String((err && err.message) || err))}</div>` })
+  }
+}
+
 document.getElementById('viewer-close').addEventListener('click', closeViewer)
 viewer.addEventListener('click', (e) => { if (e.target === viewer) closeViewer() })
 addEventListener('keydown', (e) => { if (e.key === 'Escape' && !viewer.hidden) closeViewer() })
@@ -385,6 +401,8 @@ async function renderDetail(path) {
   state.current = data
   const { meta, files, summary } = data
   const assets = files.assets || []
+  // 资产提示词在「资产」卡片里已有、分镜在每集的「看分镜」里，这里只放剧本
+  const scripts = (files.docs || []).filter((d) => d.kind === 'script')
   const episodes = files.episodes || []
   const doneAssets = assets.filter((a) => a.status === 'done')
   const nextEpisode = episodes.find((e) => e.video.status !== 'done') || null
@@ -428,11 +446,16 @@ async function renderDetail(path) {
 
     ${running ? jobBar(running) : ''}
 
+    <div class="sec-head"><h2>剧本</h2><span class="sub">${scripts.length ? `${scripts.length} 份 · 点「查看」看全文` : '还没有剧本'}</span></div>
+    ${scripts.length
+      ? `<div class="panel docs">${scripts.map((doc) => docRow(doc, data.path)).join('')}</div>`
+      : `<div class="empty-box"><b>还没有剧本</b>让模型先写 剧本.md（每个镜头以 △ 开头，台词写「角色名（情绪）：台词」）。</div>`}
+
     <div class="sec-head"><h2>资产</h2><span class="sub">${doneAssets.length}/${assets.length} 完成 · 出图约 6 积分 / 张（实测）</span></div>
     ${assets.length ? `<div class="assets">${assets.map((a) => assetCard(a, data.path)).join('')}</div>`
       : `<div class="empty-box"><b>还没有登记资产</b>让模型用 realman_project action=update 把 C/S/P 资产和 prompt 写进 project.json。</div>`}
 
-    <div class="sec-head"><h2>分集</h2><span class="sub">${summary.doneEpisodes}/${episodes.length} 出片</span></div>
+    <div class="sec-head"><h2>分集</h2><span class="sub">${summary.doneEpisodes}/${episodes.length} 出片 · 每集的「看分镜 / 看 txt」读该集存档与纯正文</span></div>
     ${episodes.length ? episodes.map((e) => episodeCard(e, data.path, running, meta.video.aspect)).join('')
       : `<div class="empty-box"><b>还没有分集</b>登记 episodes（prompt + refs）之后就能逐集出片。</div>`}
 
@@ -466,6 +489,9 @@ async function renderDetail(path) {
   app.querySelectorAll('[data-asset-zoom]').forEach((el) => el.addEventListener('click', () => {
     openViewer({ title: el.dataset.id, media: `<img src="${esc(el.dataset.assetZoom)}" alt="">` })
   }))
+  app.querySelectorAll('[data-doc]').forEach((el) => el.addEventListener('click', () => {
+    openDoc(el.dataset.doc, el.dataset.docTitle)
+  }))
 }
 
 // 「16:9」这类画幅串 → CSS aspect-ratio + 缩略图宽窄档位（场景资产是横的，人物是竖的）
@@ -482,6 +508,16 @@ function ratioClass(r) {
   if (r.value > 1.15) return 'wide'
   if (r.value > 0.92) return 'square'
   return ''
+}
+
+// 剧本行：一行一份，点「查看」读全文
+function docRow(doc, projectPath) {
+  const abs = joinPath(projectPath, doc.file)
+  return `<div class="docrow">
+    <span class="docname" title="${esc(doc.title || doc.name)}">${esc(doc.name)}${doc.title ? `<small>${esc(doc.title)}</small>` : ''}</span>
+    <span class="docmeta">${esc(kb(doc.bytes))} · ${esc(shortTime(doc.updatedAt))}</span>
+    <button class="btn ghost small" data-doc="${esc(abs)}" data-doc-title="${esc(doc.name)}">查看</button>
+  </div>`
 }
 
 function assetCard(a, projectPath) {
@@ -529,6 +565,8 @@ function episodeCard(e, projectPath, running, aspect) {
         <button class="btn ghost small" data-ep="${esc(e.id)}" ${busy ? 'disabled' : ''}>
           ${busy ? '出片中…' : (e.video.status === 'done' ? '重出本集' : '出本集')}
         </button>
+        ${e.storyboard ? `<button class="btn ghost small" style="margin-left:6px" data-doc="${esc(joinPath(projectPath, e.storyboard))}" data-doc-title="${esc(`${e.id} 分镜`)}">看分镜</button>` : ''}
+        ${e.hasPromptFile ? `<button class="btn ghost small" style="margin-left:6px" data-doc="${esc(joinPath(projectPath, e.promptFile))}" data-doc-title="${esc(`${e.id} 纯正文`)}">看 txt</button>` : ''}
       </div>
       ${e.prompt ? `<details><summary>Seedance 纯正文</summary><p>${esc(e.prompt)}</p></details>` : ''}
     </div>

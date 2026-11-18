@@ -79,6 +79,8 @@ try {
   check('project: 默认模型', detail.meta.video.model === 'seedance_2.5_flash' && detail.meta.video.resolution === '480p', `${detail.meta.video.model}/${detail.meta.video.resolution}`)
   check('project: 资产摘要', detail.files.assets.length === 2 && detail.files.assets[0].promptChars > 0, `promptChars=${detail.files.assets[0].promptChars}`)
   check('project: promptFile 识别', detail.files.episodes.every((e) => e.hasPromptFile), detail.files.episodes.map((e) => e.promptFile).join(','))
+  // 详情页要能看剧本/分镜：docs 必须把每集 txt 列出来，且带 kind 与大小
+  check('project: 文档列表', Array.isArray(detail.files.docs) && detail.files.docs.some((d) => d.kind === 'prompt' && d.bytes > 0), `docs=${(detail.files.docs || []).map((d) => `${d.kind}:${d.name}`).join(' ')}`)
   check('project: 历史按项目过滤', detail.history.length === 2 && detail.stats.credits === 6, `history=${detail.history.length}`)
 
   const hist = JSON.parse((await get('/realman-studio/api/history?kind=episode&status=failed')).text)
