@@ -8,7 +8,8 @@
 
 | 能力 | 说明 |
 |---|---|
-| skill `seedance-storyboard-generator-realman` | 随包快照：SKILL.md + 真人感电影写实指南 + apiz 备选通道 + 费曼《不一样的工具箱》完整案例（剧本/资产/五集分镜/成片抽帧） |
+| skill `seedance-storyboard-generator-realman` | 随包快照：SKILL.md + 真人感电影写实指南 + apiz 备选通道 + 费曼《不一样的工具箱》完整案例（剧本/资产/五集分镜/成片抽帧）。§七 是插件侧追加的「工具·模型·安装」落地说明 |
+| 模型（默认，可换） | 出图 `seedream_5.5`（2K，实测约 6 积分/张）｜出片 `seedance_2.5_flash`（480p 约 105、720p 约 285，**原生语音+口型**）｜`seedance_2.0_mini` 更便宜但没有口型，真人剧别用 |
 | `realman_project` | 建项目、读进度、登记资产/分镜；即梦登录、查积分、建画布 |
 | `realman_check` | 出片前机械事故安检：纯净性（txt 只喂纯正文）、防全哑（缺【声音】/口型声明）、台词重复、时间轴格式、资产锁形象硬要求、txt↔md 一致性。**只拦事故，不评判创作** |
 | `realman_asset` | 每个资产在画布上建图片节点 → 等待生成 → 下载到 `assets/` |
@@ -29,6 +30,8 @@ dreamina-canvas --format json version
 ```
 
 装完让模型跑 `realman_project action=login` 拿授权链接，扫码后 `action=login-check`。
+不装 CLI 也能用本插件写剧本/分镜/提示词，只是不能真的出图出片。
+完整安装步骤、生图流程与报价表在侧栏「真人剧工坊 → 文-资-视-剪」页；模型与工具对应关系见随包 skill 的 SKILL.md §七。
 拼接还需要 `ffmpeg`。
 
 ## 项目目录（真人感双文件约定）
@@ -83,7 +86,7 @@ dreamina-canvas --format json version
 
 | 用途 | 模型 · 参数 | 积分 |
 |---|---|---|
-| 资产图 | `seedream_5.5` · 2K | 约 3/张 |
+| 资产图 | `seedream_5.5` · 2K | 约 6/张 |
 | 单集 15s | `seedance_2.5_flash` · 480p（默认） | 约 105 |
 | 单集 15s | `seedance_2.5_flash` · 720p | 约 285 |
 | 单集 15s | `seedance_2.5` · 720p | 约 300 |
@@ -100,10 +103,11 @@ dreamina-canvas --format json version
 node test/lib.test.mjs     # 数据层 + 机械安检内核 25 项单测（含费曼金标准示例零 error 回归）
 node scripts/api-test.mjs  # 起本地 http，打一遍 catalog / project / history / 静态页面（不花积分）
 node scripts/client-smoke.mjs # 浏览器半边能否被 __ModuleLoader__ 接住、两个 slot 都注册
-node scripts/selftest.mjs  # 数据层 + realman_check 正反例 + CLI 探活 + ffmpeg 拼接（不建节点、不花积分）
+node scripts/selftest.mjs  # 数据层 + realman_check 正反例 + CLI 探活 + ffmpeg 拼接 + 拼接工具回归（不建节点、不花积分）
 ```
 
 `api-test.mjs` 会把 `$DSH_HOME` 指到 `.tmp/` 下的临时目录，不碰你的真实历史。
+`selftest.mjs` 只在最后一段跑拼接工具时把 `$DSH_HOME` 指到自己的临时目录，历史也不会落到你的真实记录里。
 
 ## 安装
 

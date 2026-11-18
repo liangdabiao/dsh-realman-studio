@@ -37,7 +37,7 @@ const STEPS = [
   ['04', '剪', '拼接成片', 'ffmpeg 按集序拼成 out/final.mp4，可选贴一条旁白音轨']
 ]
 const MODELS = [
-  ['资产图', 'seedream_5.5 · 2K', '约 3 / 张'],
+  ['资产图', 'seedream_5.5 · 2K', '约 6 / 张（实测）'],
   ['单集 15s', 'seedance_2.5_flash · 480p（默认）', '约 105 / 集'],
   ['单集 15s', 'seedance_2.5_flash · 720p', '约 285 / 集'],
   ['单集 15s', 'seedance_2.5 · 720p', '约 300 / 集'],
@@ -387,7 +387,9 @@ async function renderDetail(path) {
   const assets = files.assets || []
   const episodes = files.episodes || []
   const doneAssets = assets.filter((a) => a.status === 'done')
-  const nextEpisode = episodes.find((e) => e.video.status !== 'done') || episodes[0]
+  const nextEpisode = episodes.find((e) => e.video.status !== 'done') || null
+  // 报价直接写在按钮上：480p 约 105 分 / 720p 约 285 分（2026-11 实测），点之前就知道要花多少
+  const episodeCredits = meta.video.resolution === '720p' ? 285 : 105
   const recs = data.history || []
   const running = Object.values(state.jobs).find((j) => j.project === data.path && j.status === 'running')
 
@@ -414,8 +416,8 @@ async function renderDetail(path) {
       <button class="btn" id="gen-assets" ${assets.length === doneAssets.length ? 'disabled' : ''}>
         ${running && running.kind === 'asset' ? '出图中…' : `全部出图（${assets.length - doneAssets.length}）`}
       </button>
-      <button class="btn jade" id="gen-episode" ${episodes.length ? '' : 'disabled'}>
-        ${running && running.kind === 'episode' ? '出片中…' : `出下一集${nextEpisode ? `（${nextEpisode.id}）` : ''}`}
+      <button class="btn jade" id="gen-episode" ${nextEpisode ? '' : 'disabled'}>
+        ${running && running.kind === 'episode' ? '出片中…' : nextEpisode ? `出下一集（${nextEpisode.id}）· 约 ${episodeCredits} 分` : '已全部出片'}
       </button>
       <button class="btn ghost" id="assemble" ${summary.doneEpisodes ? '' : 'disabled'}>
         ${running && running.kind === 'assemble' ? '拼接中…' : '拼接成片'}
@@ -426,12 +428,12 @@ async function renderDetail(path) {
 
     ${running ? jobBar(running) : ''}
 
-    <div class="sec-head"><h2>资产</h2><span class="sub">${doneAssets.length}/${assets.length} 完成 · 出图约 3 积分 / 张</span></div>
+    <div class="sec-head"><h2>资产</h2><span class="sub">${doneAssets.length}/${assets.length} 完成 · 出图约 6 积分 / 张（实测）</span></div>
     ${assets.length ? `<div class="assets">${assets.map((a) => assetCard(a, data.path)).join('')}</div>`
       : `<div class="empty-box"><b>还没有登记资产</b>让模型用 realman_project action=update 把 C/S/P 资产和 prompt 写进 project.json。</div>`}
 
     <div class="sec-head"><h2>分集</h2><span class="sub">${summary.doneEpisodes}/${episodes.length} 出片</span></div>
-    ${episodes.length ? episodes.map((e) => episodeCard(e, data.path, running)).join('')
+    ${episodes.length ? episodes.map((e) => episodeCard(e, data.path, running, meta.video.aspect)).join('')
       : `<div class="empty-box"><b>还没有分集</b>登记 episodes（prompt + refs）之后就能逐集出片。</div>`}
 
     <div class="sec-head"><h2>这个项目的生成记录</h2><a class="more" href="#/history">全部 →</a></div>
@@ -452,7 +454,10 @@ async function renderDetail(path) {
     `都齐了用 realman_assemble 拼成片。每次跑完在侧栏「真人剧工坊 · 生成历史」里核对积分和产物。`))
   const genAssets = document.getElementById('gen-assets')
   if (genAssets) genAssets.addEventListener('click', () => generate(data.path, 'asset'))
-  document.getElementById('gen-episode').addEventListener('click', () => generate(data.path, 'episode', nextEpisode ? { episode: nextEpisode.id } : {}))
+  document.getElementById('gen-episode').addEventListener('click', () => {
+    if (!nextEpisode) return toast('所有集都已出片；要重出某一集，点那一集的「重出本集」')
+    generate(data.path, 'episode', { episode: nextEpisode.id })
+  })
   document.getElementById('assemble').addEventListener('click', () => generate(data.path, 'assemble'))
 
   app.querySelectorAll('[data-ep]').forEach((el) => el.addEventListener('click', () => {
@@ -463,12 +468,29 @@ async function renderDetail(path) {
   }))
 }
 
+// 「16:9」这类画幅串 → CSS aspect-ratio + 缩略图宽窄档位（场景资产是横的，人物是竖的）
+function ratioOf(value) {
+  const m = /^(\d+(?:\.\d+)?)\s*[:/]\s*(\d+(?:\.\d+)?)$/.exec(String(value || '').trim())
+  if (!m) return null
+  const w = Number(m[1])
+  const h = Number(m[2])
+  return w > 0 && h > 0 ? { w, h, css: `${w} / ${h}`, value: w / h } : null
+}
+
+function ratioClass(r) {
+  if (!r) return ''
+  if (r.value > 1.15) return 'wide'
+  if (r.value > 0.92) return 'square'
+  return ''
+}
+
 function assetCard(a, projectPath) {
   const img = a.file ? mediaUrl(joinPath(projectPath, a.file)) : ''
   const tone = a.status === 'done' ? 'ok' : a.status === 'failed' ? 'bad' : 'grey'
   const label = a.status === 'done' ? '完成' : a.status === 'failed' ? '失败' : a.status === 'running' ? '生成中' : '待办'
+  const ratio = ratioOf(a.ratio)
   return `<div class="asset">
-    <div class="shot" ${img ? `data-asset-zoom="${esc(img)}" data-id="${esc(a.id)}"` : ''}>
+    <div class="shot ${ratioClass(ratio)}" ${ratio ? `style="aspect-ratio:${ratio.css}"` : ''} ${img ? `data-asset-zoom="${esc(img)}" data-id="${esc(a.id)}"` : ''}>
       ${img ? `<img src="${esc(img)}" alt="${esc(a.id)}" loading="lazy">` : (a.status === 'failed' ? '失败' : '未出图')}
     </div>
     <div class="row"><b>${esc(a.id)}</b>
@@ -479,13 +501,18 @@ function assetCard(a, projectPath) {
   </div>`
 }
 
-function episodeCard(e, projectPath, running) {
+function episodeCard(e, projectPath, running, aspect) {
   const file = e.video.file ? joinPath(projectPath, e.video.file) : ''
   const tone = e.video.status === 'done' ? 'ok' : e.video.status === 'failed' ? 'bad' : 'grey'
   const label = e.video.status === 'done' ? '已出片' : e.video.status === 'failed' ? '失败' : e.video.status === 'running' ? '生成中' : '待办'
   const busy = running && running.kind === 'episode' && running.args && running.args.episode === e.id
+  const ratio = ratioOf(aspect)
+  // 真人感约定：提示词正文在 E0X_prompt.txt 里，project.json 的 prompt 常为空——别显示成「0 字」
+  const promptLine = e.promptChars
+    ? `提示词 ${e.promptChars} 字`
+    : e.hasPromptFile ? `正文见 ${esc(e.promptFile)}` : '提示词未登记'
   return `<div class="episode">
-    <div class="scene">${file ? videoOf(file) : '未出片'}</div>
+    <div class="scene ${ratioClass(ratio)}" ${ratio ? `style="aspect-ratio:${ratio.css}"` : ''}>${file ? videoOf(file) : '未出片'}</div>
     <div class="meta">
       <div class="row">
         <b>${esc(e.id)}</b>
@@ -496,7 +523,7 @@ function episodeCard(e, projectPath, running) {
         ${e.hasPromptFile ? '<span class="badge ok">txt✓</span>' : ''}
         <span class="badge grey">参考 ${(e.refs || []).join(' → ') || '无'}</span>
       </div>
-      <div class="desc">提示词 ${e.promptChars} 字${e.video.finishedAt ? ` · ${esc(shortTime(e.video.finishedAt))} 出片` : ''}</div>
+      <div class="desc">${promptLine}${e.video.finishedAt ? ` · ${esc(shortTime(e.video.finishedAt))} 出片` : ''}</div>
       ${e.video.error ? `<div style="color:var(--bad);font-size:11.5px;margin-top:4px">${esc(e.video.error)}</div>` : ''}
       <div style="margin-top:8px">
         <button class="btn ghost small" data-ep="${esc(e.id)}" ${busy ? 'disabled' : ''}>
@@ -688,19 +715,14 @@ function renderNew() {
             <option value="ink">国风水墨</option>
           </select>
         </label>
-        <label class="fld">情感基调<input id="f-tone" placeholder="如：智性悬疑 / 温暖收束 / 紧张压迫"></label>
-        <label class="fld">一句话卖点<input id="f-hook" placeholder="如：题解不开，常常是手里只有一把锤子"></label>
-        <label class="fld">色盘（中文，可选）<input id="f-palette-zh" placeholder="如：暖褐、烟灰、旧木色"></label>
-        <label class="fld">色盘（英文，可选）<input id="f-palette-en" placeholder="warm umber, ash gray, old wood"></label>
-        <label class="fld full">视觉风格（自由描述，可改）<input id="f-style" placeholder="默认已按质感预设填好，可整句替换"></label>
         <label class="fld full">故事 / 梗概（可先写一句，让模型扩写）<textarea id="f-blurb" rows="4" placeholder="普林斯顿数学系一道攻不破的积分，被物理系的年轻费曼用「积分号下求导」当场解开…"></textarea></label>
       </div>
       <div class="actions" style="margin-top:14px">
-        <button class="btn" id="f-go">建项目 + 写剧本 →</button>
+        <button class="btn" id="f-go">打开新对话，指令已写好 →</button>
         <button class="btn ghost" id="f-skill">先看 skill 怎么用</button>
       </div>
       <div class="note" style="margin-top:12px">
-        预算参考：资产图约 3 积分 / 张；单集 15 秒 480p 约 105 积分、720p 约 285 积分。
+        预算参考：资产图约 6 积分 / 张（实测）；单集 15 秒 480p 约 105 积分、720p 约 285 积分。
         模型会先 dryRun 报报价，再真跑；单次积分上限图片 10、视频 150，超了直接拒绝。
       </div>
     </div>
@@ -710,12 +732,6 @@ function renderNew() {
       <div class="grid">${projectCard(lastProject)}</div>` : ''}
   `)
   bindCards()
-  const syncLook = () => {
-    const key = document.getElementById('f-look').value
-    document.getElementById('f-style').value = LOOK_PRESETS[key] || ''
-  }
-  document.getElementById('f-look').addEventListener('change', syncLook)
-  syncLook()
   document.getElementById('f-go').addEventListener('click', () => {
     const title = document.getElementById('f-title').value.trim()
     if (!title) return toast('先填个剧名')
@@ -725,22 +741,19 @@ function renderNew() {
     const seconds = Number(document.getElementById('f-seconds').value) || 15
     const aspect = document.getElementById('f-aspect').value
     const resolution = document.getElementById('f-resolution').value
-    const style = document.getElementById('f-style').value.trim()
-    const tone = document.getElementById('f-tone').value.trim()
-    const hook = document.getElementById('f-hook').value.trim()
-    const zh = document.getElementById('f-palette-zh').value.trim()
-    const en = document.getElementById('f-palette-en').value.trim()
+    const look = document.getElementById('f-look').value
+    const style = LOOK_PRESETS[look] || LOOK_PRESETS.realman
     const blurb = document.getElementById('f-blurb').value.trim()
-    if (!style) return toast('先填视觉风格（默认质感预设已填好，可整句替换）')
     start(`帮我做一部真人剧《${title}》，视觉风格：${style}。
 
 故事：${blurb || '（我只有剧名，先帮我把故事骨架和人物立起来，再往下做）'}
 
 项目目录：${dir}
-参数：${episodes} 集 × ${seconds}s，画幅 ${aspect}，分辨率 ${resolution}，风格：${style}${tone ? `，基调：${tone}` : ''}${hook ? `，一句话卖点：${hook}` : ''}，色盘：${zh || '（你按故事定）'}${en ? ` / ${en}` : ''}
+参数：${episodes} 集 × ${seconds}s，画幅 ${aspect}，分辨率 ${resolution}，风格：${style}
+（基调、一句话卖点、色盘这些你没拿到，按故事自己定，写进 realman_project init 里即可。）
 
 请按 seedance-storyboard-generator-realman 技能推进「文-资-视-剪」：
-1. realman_project action=init（path=${dir}，title/aspect/episodes/episodeSeconds/resolution/styleDescription/tone/hook/paletteZh/paletteEn）
+1. realman_project action=init（path=${dir}，title/aspect/episodes/episodeSeconds/resolution/styleDescription，tone/hook/palette 按故事自定）
 2. 写 剧本.md（△镜头 + 角色名（情绪）：台词）与 资产提示词.md（C/S/P：角色全身+纯白底+皮肤细节、场景无人三机位、道具纯白底）；每集先定一句弧线
 3. 逐集写 E01…E${String(episodes).padStart(2, '0')}_分镜提示词.md（存档版：弧线/台词表/检查记录/尾帧描述 + --- + 正文），并导出同名 E0X_prompt.txt 纯正文（从「生成一段」起，只含喂模型的正文；台词逐字写在说话那一刻、【声音】段统一口型声明、台词绝不重复第二遍）
 4. realman_check action=all 机械事故安检（防全哑/纯净性/时间轴），error 修完再往下
@@ -776,6 +789,29 @@ function renderGuide() {
         <dt>纯净性</dt><dd>发给模型的只有纯提示词正文（E0X_prompt.txt，从「生成一段」起）；存档版 md 里的弧线/台词表/检查记录绝不喂模型。</dd>
         <dt>一致性</dt><dd>靠资产参考图（m2v 挂节点），不靠「全程一致/禁止换脸」这类文字禁令；跨镜要维持的具体状态写进它所属的时间轴段。</dd>
       </dl>
+    </div>
+
+    <div class="sec-head"><h2>安装与准备（一次性）</h2><span class="sub">不装也能写剧本/分镜，只是不能真的出图出片</span></div>
+    <div class="panel">
+       <p>生成视频和图片用的是**即梦 CLI**（dreamina-canvas），需要先安装并登录：</p>
+
+<p>- 官网：https://jimeng.jianying.com/ai-tool/install?from_page=explore</p>
+<p>- 装好:全能画布CLI </p>
+ <p>- 生图默认：Seedream 5.5（seedream5.5）</p>
+<p>- 生视频默认：Seedance 2.5 flash</p>
+    </div>
+
+    <div class="sec-head"><h2>生图怎么走（资）</h2><span class="sub">seedream_5.5 · 2K · 实测约 6 积分/张</span></div>
+    <div class="panel">
+      
+      <table>
+        <thead><tr><th>资产</th><th>比例</th><th>硬要求</th></tr></thead>
+        <tbody>
+          <tr><td>角色 C0X</td><td>3:4</td><td>全身正面、纯白底、含鞋、不持物、中性表情、真实人体比例</td></tr>
+          <tr><td>场景 S0X</td><td>16:9 / 9:16</td><td>画面里没有人；正打 / 反打 / 侧面全景各一张</td></tr>
+          <tr><td>道具 P0X</td><td>1:1</td><td>纯白底单独展示</td></tr>
+        </tbody>
+      </table>
     </div>
 
     <div class="sec-head"><h2>模型与积分</h2><span class="sub">实测报价（2026-11，cn 区），以 model list 实时结果为准</span></div>

@@ -180,4 +180,26 @@ console.log(`ok（${(bytes / 1024).toFixed(0)} KB，${duration}s）`)
 if (!duration || duration < 3.5) throw new Error(`拼接结果时长异常：${duration}`)
 
 writeFileSync(join(dir, 'out', 'selftest.json'), JSON.stringify({ ok: true, duration, cli: Boolean(cli) }, null, 2))
+
+// 回归：realman_assemble 在「还有集没出片」时必须成功。
+// 曾经的 bug：记录 items 时对 video.file=null 的集也做 resolve(dir, null)，
+// 抛 "The paths[1] argument must be of type string"，于是拼好的片子被报成失败。
+process.env.DSH_HOME = join(ROOT, 'home')
+const { assembleTool } = await import('../lib/tools.js')
+const { readHistory } = await import('../lib/history.js')
+step('登记一集已出片、一集未出片', () => updateProject(dir, {
+  episodes: readProject(dir).episodes.map((e, i) => ({
+    ...e,
+    video: i === 0 ? { status: 'done', file: 'videos/E01.mp4', duration: 2 } : { status: 'idle', file: null }
+  }))
+}))
+process.stdout.write('- 拼接工具（含未出片的集）… ')
+const assembled = await assembleTool.execute({ project: dir })
+if (!assembled.ok) throw new Error(`拼接失败：${assembled.summary}｜${assembled.data}`)
+if (!/跳过/.test(assembled.data)) throw new Error(`没提示跳过哪些集：${assembled.data}`)
+const lastRecord = readHistory()[0]
+if (!lastRecord || lastRecord.kind !== 'assemble' || lastRecord.status !== 'ok') throw new Error('拼接没记进历史')
+if (lastRecord.items.length !== 1 || lastRecord.items[0].id !== 'E01') throw new Error(`历史 items 不对：${JSON.stringify(lastRecord.items)}`)
+console.log('ok')
+
 console.log(`\n全部通过。产物：${out}`)

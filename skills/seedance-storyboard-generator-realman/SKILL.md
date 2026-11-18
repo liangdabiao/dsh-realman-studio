@@ -87,3 +87,33 @@ description: 把故事/文章/大纲做成真人实拍质感、电影感的 AI �
 - 平台拒审兜底（面部转绘/网格/遮挡）会破坏真人感，仅用户明确要求时启用，并告知画质代价；优先用"虚构角色"设定规避。
 - 本 skill 自包含，只读本文件与该指南，不依赖工作区其他文件。
 - 备选通道（即梦积分不足/未授权时）：`references/apiz-flare-h3备选通道.md` —— apiz.ai 的 `gpt-image-2.5-flare` 生图 + `MiniMax-H3` 生视频，含实测单价、`content` 数组接口写法与踩坑记录。只换通道，分镜写法不变。
+
+## 七、在这台机器上怎么真的跑起来（工具 · 模型 · 安装）
+
+> 本机装了「真人剧工坊」插件时按这一节走；只写剧本/提示词可以跳过。
+
+**模型（默认，用户点名就换）**
+
+| 用途 | 模型 ID | 关键参数 | 实测积分（2026-11，cn 区） |
+|---|---|---|---|
+| 生图（资产 C/S/P） | `seedream_5.5` | 2K；角色 3:4、场景 16:9/9:16、道具 1:1 | 约 6 / 张 |
+| 生视频（每集） | `seedance_2.5_flash` | 15s；480p 默认 / 720p；**原生语音+口型** | 约 105 / 285 |
+| 省钱但没口型 | `seedance_2.0_mini` | 720p | 约 90，真人剧别用 |
+
+**执行工具（不要手敲 CLI，走插件工具：路径校验、积分上限、记账都一样）**
+
+- `realman_project action=init|read|update|env` —— 建项目 / 读进度 / 登记 assets 与 episodes / 查环境
+- `realman_check action=all` —— 写完先自检（error 修完再烧积分）
+- `realman_asset action=generate` —— 按 `assets[].prompt` 出资产图，先加 `dryRun:true` 报价
+- `realman_episode action=generate` —— 读该集 `E0X_prompt.txt` 出片，`refs` 挂资产编号或上一集集号
+- `realman_assemble` —— ffmpeg 拼成 `out/final.mp4`
+- `realman_history action=stats` —— 花了多少积分、哪张失败
+
+**安装（一次性；没装也能写剧本分镜，只是不能出图出片）**
+
+1. 即梦官方 CLI（全能画布）：`irm https://jimeng.jianying.com/canvas-cli/install.ps1 | iex`，然后 `dreamina-canvas --format json version` 校验。不是 npm 上的第三方 `jimeng-cli`。
+2. 登录：`realman_project action=login` 拿授权链接 → 扫码 → `action=login-check`。
+3. 拼片：需要 `ffmpeg`（`ffmpeg -version` 有输出即可）。
+4. 兜底：积分不足/未授权走 `references/apiz-flare-h3备选通道.md`。
+
+**费用红线**：单次上限图片 10 分、视频 150 分，报价超过直接拒绝、不会静默扣费；出片前先 `dryRun` 或看 `realman_project action=env` 的余额。
